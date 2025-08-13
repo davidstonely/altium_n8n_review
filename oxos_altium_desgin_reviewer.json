@@ -519,11 +519,34 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "net-file-condition",
+                    "leftValue": "={{ $('Set File ID').item.json.file_title }}",
+                    "rightValue": "\\.NET$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex",
+                      "name": "filter.operator.regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
         "options": {
-          "fallbackOutput": 3
+          "fallbackOutput": 4
         }
       },
       "id": "80bc3ea3-5130-4e5b-865b-6a836472aa80",
@@ -618,6 +641,48 @@
       ],
       "id": "7e8f7a1b-c976-44e3-8345-155d6f40c6a6",
       "name": "Extract from CSV"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Altium Netlist (.NET file)\nconst fileData = $input.first().binary.data;\nconst content = Buffer.from(fileData, 'base64').toString('utf-8');\n\nconst lines = content.split('\\n').map(line => line.trim()).filter(line => line.length > 0);\n\nconst components = [];\nconst netConnections = [];\n\nlet currentSection = '';\nlet currentNet = null;\nlet currentNetId = null;\n\nfor (let i = 0; i < lines.length; i++) {\n  const line = lines[i];\n  \n  // Detect sections\n  if (line === '<<< Component List >>>') {\n    currentSection = 'components';\n    continue;\n  }\n  if (line === '<<< Wire List >>>') {\n    currentSection = 'wires';\n    continue;\n  }\n  \n  // Skip headers and empty lines\n  if (line.startsWith('NODE') || line.startsWith('Wire List') || line === '') {\n    continue;\n  }\n  \n  if (currentSection === 'components') {\n    // Parse component line: PART_NUMBER DESIGNATOR FOOTPRINT\n    const parts = line.split(/\\s+/);\n    if (parts.length >= 3) {\n      components.push({\n        component_type: 'component',\n        part_number: parts[0],\n        designator: parts[1], \n        footprint: parts[2],\n        value: parts[0] // Using part number as value for now\n      });\n    }\n  }\n  \n  if (currentSection === 'wires') {\n    // Parse net header: [NETID] NET_NAME\n    const netMatch = line.match(/^\\[(\\d+)\\]\\s+(.+)$/);\n    if (netMatch) {\n      currentNetId = netMatch[1];\n      currentNet = netMatch[2];\n      continue;\n    }\n    \n    // Parse connection line: DESIGNATOR PIN_NUM PIN_NAME PIN_TYPE PART_VALUE\n    if (currentNet && line.includes('  ')) {\n      const parts = line.split(/\\s+/).filter(p => p.length > 0);\n      if (parts.length >= 5) {\n        netConnections.push({\n          component_type: 'net_connection',\n          net_name: currentNet,\n          net_id: currentNetId,\n          designator: parts[0],\n          pin_number: parts[1],\n          pin_name: parts[2],\n          pin_type: parts[3],\n          part_value: parts.slice(4).join(' ')\n        });\n      }\n    }\n  }\n}\n\n// Combine all data\nconst allData = [...components, ...netConnections];\n\nreturn allData.map(item => ({ json: item }));"
+      },
+      "id": "net-parser-12345",
+      "name": "Parse Netlist File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "netlist-schema-id",
+              "name": "schema",
+              "value": "[\"component_type\", \"net_name\", \"net_id\", \"designator\", \"pin_number\", \"pin_name\", \"pin_type\", \"part_value\", \"part_number\", \"footprint\", \"value\"]",
+              "type": "string"
+            },
+            {
+              "id": "netlist-data-id", 
+              "name": "data",
+              "value": "={{ JSON.stringify($json) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -200,
+        720
+      ],
+      "id": "netlist-schema-node-12345",
+      "name": "Set Netlist Schema"
     },
     {
       "parameters": {
@@ -1394,6 +1459,13 @@
         ],
         [
           {
+            "node": "Parse Netlist File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Extract Document Text",
             "type": "main",
             "index": 0
@@ -1583,6 +1655,33 @@
           {
             "node": "Insert into Supabase Vectorstore",
             "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Netlist File": {
+      "main": [
+        [
+          {
+            "node": "Set Netlist Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Netlist Schema": {
+      "main": [
+        [
+          {
+            "node": "Insert Table Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Schema for Document Metadata",
+            "type": "main",
             "index": 0
           }
         ]

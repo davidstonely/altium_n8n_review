@@ -98,3 +98,54 @@ The system operates in two main modes:
 2. **Question Answering**: Triggered by chat webhook calls
 
 Document processing includes automatic cleanup of old versions, format-specific extraction, and both vector and structured storage.
+
+## Reference Architecture Context
+
+This repository includes a reference implementation from `coleam00/local-ai-packaged` in the `reference-local-ai/` directory. This reference provides valuable insights for potential improvements and local deployment strategies.
+
+### Reference Repository Analysis
+
+The reference implementation (`reference-local-ai/`) contains:
+- **Local AI Stack**: Complete Docker Compose setup with Ollama, local Supabase, n8n, and supporting services
+- **n8n Workflows**: Multiple versions of RAG implementations including V3 Agentic RAG
+- **Infrastructure**: Caddy reverse proxy, Qdrant vector store, Neo4j graph database, monitoring tools
+- **Tool Workflows**: Pre-built n8n workflows for Slack, Google Docs, and Postgres integration
+
+### Architectural Comparison
+
+**Current Implementation (Cloud-based)**:
+- Google Gemini for LLM and embeddings
+- Google Drive for document storage
+- Supabase cloud for vector database
+- Advanced agentic capabilities with SQL tools
+
+**Reference Implementation (Local)**:
+- Ollama for local LLMs (qwen2.5:7b, nomic-embed-text)
+- Local file storage with Docker volumes
+- Local Supabase instance with pgvector
+- Complete containerized stack
+
+### Improvement Opportunities
+
+1. **Hybrid Architecture**: Support both local and cloud deployment modes
+2. **Local AI Integration**: Add Ollama support alongside Google Gemini
+3. **Enhanced Infrastructure**: Docker Compose setup with reverse proxy and monitoring
+4. **Additional Vector Stores**: Integrate Qdrant for specialized use cases
+5. **Graph Database**: Add Neo4j for complex document relationships
+6. **Tool Expansion**: Incorporate pre-built workflows from reference implementation
+
+### Local Deployment Considerations
+
+For local deployment, consider:
+- **Model Selection**: Reference uses qwen2.5:7b-instruct-q4_K_M for chat and nomic-embed-text for embeddings
+- **Resource Requirements**: Local LLMs require significant RAM/GPU resources
+- **Privacy Benefits**: Complete data locality with no external API calls
+- **Performance Trade-offs**: Local models vs cloud API speed and capability differences
+
+### Future Development Paths
+
+1. **Phase 1**: Create Docker Compose setup for current workflow
+2. **Phase 2**: Add Ollama integration as alternative to Google Gemini
+3. **Phase 3**: Implement hybrid mode with configurable backend selection
+4. **Phase 4**: Enhanced infrastructure with monitoring and additional databases
+5. **Phase 5**: Tool ecosystem expansion with reference workflow integration
